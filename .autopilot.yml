@@ -1,0 +1,41 @@
+# .autopilot.yml — Autopilot's own configuration
+#
+# This is the Autopilot repo's self-configuration. It governs:
+#   - The self-evolution session schedule
+#   - Issue labels used in the Autopilot repo itself
+#   - Commit format for changes to LEARNINGS.md and EVOLUTION_LOG.md
+
+schedule:
+  frequency: "every-8-hours"
+  session_time_limit_minutes: 30
+  immediate_trigger_on:
+    - label: "autopilot-urgent"
+    - incident_severity: "critical"
+
+issues:
+  input_label: "autopilot-input"
+  urgent_label: "autopilot-urgent"
+  filed_label: "autopilot-filed"
+  max_issues_filed_per_session: 3
+  max_issues_processed_per_session: 2
+
+transparency:
+  commit_prefix: "autopilot/session"
+  session_summary_in_commit: true
+  require_signed_commits: false
+
+# Hash of the ## Autopilot Constraints section in this repo's AGENT.md.
+# Populated during initial setup. Update via human-approved PR when constraints change.
+constitutional_hash: ""
+
+# ─── Self-Evolution Configuration ─────────────────────────────────────────────
+self_evolution:
+  # Minimum number of distinct repos a pattern must appear in before qualifying
+  # as a self-evolution candidate.
+  min_repos_for_candidate: 3
+
+  # The self-evolution loop never self-merges. Always opens a PR.
+  require_human_merge: true
+
+  # Label added to self-evolution PRs so they are easy to find.
+  pr_label: "autopilot-self-evolution"

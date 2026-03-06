@@ -1,0 +1,174 @@
+# .github/workflows/autopilot-self-evolution.yml
+#
+# Autopilot Self-Evolution Session (Phase 5b).
+#
+# Runs weekly (Sunday 02:00 UTC). Reviews LEARNINGS.md for automation
+# opportunities — patterns that have appeared manually in ≥3 distinct repos —
+# and proposes one capability improvement per session.
+#
+# CRITICAL SAFETY CONSTRAINT:
+#   This workflow NEVER self-merges into main. Every proposed improvement
+#   opens a PR for human review. A bug in a self-merged change could cascade
+#   across every repo Autopilot manages simultaneously.
+#
+# Session steps:
+#   1. Review LEARNINGS.md for automation candidates (pattern seen ≥3× across repos)
+#   2. Review EVOLUTION_LOG.md to avoid re-proposing rejected ideas
+#   3. Propose ONE capability improvement
+#   4. Implement the change in a feature branch
+#   5. Run Autopilot's own test suite
+#   6. Pass  → open a PR for human review; update EVOLUTION_LOG.md
+#   7. Fail  → close branch, file a GitHub Issue with failure details, revert
+
+name: Autopilot Self-Evolution
+
+on:
+  schedule:
+    # Weekly, Sunday 02:00 UTC — less frequent than target-repo sessions
+    - cron: '0 2 * * 0'
+
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Dry run (propose but do not commit or open PR)'
+        required: false
+        default: 'false'
+        type: boolean
+
+jobs:
+  self-evolution:
+    name: Self-Evolution Proposal
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write        # create feature branch, commit changes
+      issues: write          # file issue if tests fail
+      pull-requests: write   # open PR for human review
+
+    steps:
+      - name: Checkout Autopilot repo
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.AUTOPILOT_TOKEN || github.token }}
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build TypeScript
+        run: npm run build
+
+      - name: Configure git identity
+        run: |
+          git config user.name  "Autopilot Self-Evolution"
+          git config user.email "autopilot@users.noreply.github.com"
+
+      - name: Scan LEARNINGS.md for automation candidates
+        id: scan
+        env:
+          GITHUB_TOKEN: ${{ secrets.AUTOPILOT_TOKEN || github.token }}
+          DRY_RUN:      ${{ github.event.inputs.dry_run || 'false' }}
+        run: |
+          # Output: candidate_learn_id, candidate_title, candidate_description
+          node dist/self-evolution-scan.js
+
+      - name: Implement proposed change on feature branch
+        if: steps.scan.outputs.candidate_learn_id != ''
+        id: implement
+        env:
+          GITHUB_TOKEN:       ${{ secrets.AUTOPILOT_TOKEN || github.token }}
+          CANDIDATE_LEARN_ID: ${{ steps.scan.outputs.candidate_learn_id }}
+          CANDIDATE_TITLE:    ${{ steps.scan.outputs.candidate_title }}
+          DRY_RUN:            ${{ github.event.inputs.dry_run || 'false' }}
+        run: |
+          BRANCH="autopilot/evolve-$(date +%Y%m%d-%H%M)"
+          echo "branch=${BRANCH}" >> $GITHUB_OUTPUT
+          git checkout -b "${BRANCH}"
+          node dist/self-evolution-implement.js
+
+      - name: Run test suite
+        if: steps.scan.outputs.candidate_learn_id != '' && steps.implement.outcome == 'success'
+        id: tests
+        run: npm test
+
+      - name: Open PR for human review (tests passed)
+        if: |
+          steps.scan.outputs.candidate_learn_id != '' &&
+          steps.tests.outcome == 'success' &&
+          github.event.inputs.dry_run != 'true'
+        env:
+          GITHUB_TOKEN:    ${{ secrets.AUTOPILOT_TOKEN || github.token }}
+          BRANCH:          ${{ steps.implement.outputs.branch }}
+          CANDIDATE_TITLE: ${{ steps.scan.outputs.candidate_title }}
+          CANDIDATE_DESC:  ${{ steps.scan.outputs.candidate_description }}
+          LEARN_ID:        ${{ steps.scan.outputs.candidate_learn_id }}
+        run: |
+          git push origin "${BRANCH}"
+          gh pr create \
+            --title "[Autopilot Self-Evolution] ${CANDIDATE_TITLE}" \
+            --body "$(cat <<EOF
+          ## Self-Evolution Proposal
+
+          **Source learning:** ${LEARN_ID}
+          **Automation opportunity:** ${CANDIDATE_DESC}
+
+          This PR was opened automatically by the Autopilot self-evolution session.
+
+          ### Review Checklist
+          - [ ] Change is scoped to one capability improvement
+          - [ ] Tests pass (verified by CI above)
+          - [ ] No unintended side-effects on existing managed repos
+          - [ ] EVOLUTION_LOG.md entry looks correct
+
+          **IMPORTANT:** Do not merge unless you have reviewed the implementation.
+          Self-evolution PRs are never auto-merged.
+          EOF
+          )" \
+            --base main \
+            --head "${BRANCH}" \
+            --label "autopilot-self-evolution"
+
+      - name: Revert branch and file issue (tests failed)
+        if: |
+          steps.scan.outputs.candidate_learn_id != '' &&
+          steps.tests.outcome == 'failure'
+        env:
+          GITHUB_TOKEN:    ${{ secrets.AUTOPILOT_TOKEN || github.token }}
+          BRANCH:          ${{ steps.implement.outputs.branch }}
+          CANDIDATE_TITLE: ${{ steps.scan.outputs.candidate_title }}
+          LEARN_ID:        ${{ steps.scan.outputs.candidate_learn_id }}
+        run: |
+          git checkout main
+          git branch -D "${BRANCH}" || true
+          gh issue create \
+            --title "[Autopilot Self-Evolution] Tests failed: ${CANDIDATE_TITLE}" \
+            --body "$(cat <<EOF
+          ## Self-Evolution Failure
+
+          The self-evolution session proposed an improvement for **${LEARN_ID}**
+          ("${CANDIDATE_TITLE}") but the implementation failed the test suite.
+
+          The feature branch was deleted. No changes were pushed.
+
+          **Next steps:**
+          - Review the test output above in the Actions log
+          - If the idea is still valid, implement it manually and merge via PR
+          - If the idea is not viable, add a WONTDO note to EVOLUTION_LOG.md
+
+          _Filed by Autopilot self-evolution session $(date -u +%Y-%m-%dT%H:%MZ)_
+          EOF
+          )" \
+            --label "autopilot-filed"
+
+      - name: No candidates found
+        if: steps.scan.outputs.candidate_learn_id == ''
+        run: |
+          echo "No automation candidates found this week."
+          echo "Patterns must appear in ≥3 distinct repos before qualifying."
+          echo "Current LEARNINGS.md entry count: $(grep -c '^\[LEARN-' LEARNINGS.md || echo 0)"

@@ -1,0 +1,90 @@
+# .github/workflows/autopilot-session.yml
+#
+# Autopilot Scheduled Session — installed into the Autopilot repo itself.
+# A parameterised copy of this workflow is also installed in every managed
+# (target) repo by the onboarding engine (see templates/autopilot-session.yml).
+#
+# Session lifecycle (enforced by src/session.ts):
+#   1. Read last 10 AUTOPILOT_JOURNAL.md entries
+#   2. Load relevant LEARNINGS.md entries
+#   3. Verify constitutional constraints hash
+#   4. Fetch & prioritize open autopilot-input issues
+#   5. Run health checks → write findings to issue queue
+#   6. Execute bounded work (time-limited)
+#   7. Append + commit AUTOPILOT_JOURNAL.md entry  (always first commit)
+#   8. Update LEARNINGS.md if new pattern discovered (always last commit)
+
+name: Autopilot Scheduled Session
+
+on:
+  schedule:
+    # Every 8 hours (UTC). Override per-repo via .autopilot.yml schedule.frequency
+    - cron: '0 */8 * * *'
+
+  workflow_dispatch:
+    inputs:
+      trigger_type:
+        description: 'Session trigger type'
+        required: true
+        default: 'scheduled'
+        type: choice
+        options:
+          - scheduled
+          - pr-merged
+          - issue-urgent
+          - incident
+          - manual
+      trigger_ref:
+        description: 'PR number, issue number, or incident ID (optional)'
+        required: false
+        default: ''
+
+jobs:
+  autopilot-session:
+    name: 'Autopilot Session (${{ github.event.inputs.trigger_type || ''scheduled'' }})'
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write        # commit AUTOPILOT_JOURNAL.md and LEARNINGS.md
+      issues: write          # read autopilot-input, file autopilot-filed
+      pull-requests: write   # review and comment on PRs
+
+    steps:
+      - name: Checkout Autopilot repo
+        uses: actions/checkout@v4
+        with:
+          # Full history so journal entries and learnings are all available
+          fetch-depth: 0
+          token: ${{ secrets.AUTOPILOT_TOKEN || github.token }}
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build TypeScript
+        run: npm run build
+
+      - name: Configure git identity
+        run: |
+          git config user.name  "Autopilot Agent"
+          git config user.email "autopilot@users.noreply.github.com"
+
+      - name: Run Autopilot session
+        env:
+          GITHUB_TOKEN:         ${{ secrets.AUTOPILOT_TOKEN || github.token }}
+          TRIGGER_TYPE:         ${{ github.event.inputs.trigger_type || 'scheduled' }}
+          TRIGGER_REF:          ${{ github.event.inputs.trigger_ref || '' }}
+          TARGET_REPO_PATH:     ${{ github.workspace }}
+          TARGET_REPO_SLUG:     ${{ github.repository }}
+          AUTOPILOT_REPO_PATH:  ${{ github.workspace }}
+          AUTOPILOT_REPO_SLUG:  ${{ github.repository }}
+        run: node dist/session.js
+
+      - name: Push session commits
+        run: |
+          git push origin HEAD
