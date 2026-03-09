@@ -1,0 +1,84 @@
+# .github/workflows/autopilot-pr-sync.yml
+#
+# Autopilot PR Sync — installed into this repo by the Autopilot onboarding
+# engine. Triggers automatically when a PR is merged and updates AGENT.md
+# to reflect the changes introduced by the PR.
+#
+# The ## Autopilot Constraints section is NEVER modified by this workflow.
+# Any attempt to patch that section is rejected and the run fails safe.
+
+name: Autopilot PR Sync
+
+on:
+  pull_request:
+    types: [closed]
+
+jobs:
+  pr-sync:
+    # Only run when the PR was actually merged (not just closed)
+    if: github.event.pull_request.merged == true
+
+    name: 'Sync AGENT.md for PR #${{ github.event.pull_request.number }}'
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write
+      pull-requests: read
+
+    steps:
+      - name: Checkout target repo (this repo)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          path: target-repo
+          token: ${{ secrets.AUTOPILOT_TOKEN }}
+
+      - name: Checkout Autopilot repo
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ vars.AUTOPILOT_REPO_SLUG }}
+          ref: main
+          path: autopilot-repo
+          token: ${{ secrets.AUTOPILOT_TOKEN }}
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: autopilot-repo/package-lock.json
+
+      - name: Install Autopilot dependencies
+        working-directory: autopilot-repo
+        run: npm ci
+
+      - name: Build Autopilot
+        working-directory: autopilot-repo
+        run: npm run build
+
+      - name: Configure git identity
+        working-directory: target-repo
+        run: |
+          git config user.name  "Autopilot Agent"
+          git config user.email "autopilot@users.noreply.github.com"
+
+      - name: Run PR sync
+        env:
+          GITHUB_TOKEN:         ${{ secrets.AUTOPILOT_TOKEN }}
+          ANTHROPIC_API_KEY:    ${{ secrets.ANTHROPIC_API_KEY }}
+          TARGET_REPO_PATH:     ${{ github.workspace }}/target-repo
+          TARGET_REPO_SLUG:     ${{ github.repository }}
+          AUTOPILOT_REPO_PATH:  ${{ github.workspace }}/autopilot-repo
+          AUTOPILOT_REPO_SLUG:  ${{ vars.AUTOPILOT_REPO_SLUG }}
+          PR_NUMBER:            ${{ github.event.pull_request.number }}
+        working-directory: autopilot-repo
+        run: node dist/pr-sync.js
+
+      - name: Push AGENT.md update (if changed)
+        working-directory: target-repo
+        run: |
+          if git diff --quiet HEAD; then
+            echo "No AGENT.md changes — PR had no relevant diff."
+          else
+            git push origin HEAD
+          fi

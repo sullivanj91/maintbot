@@ -105,7 +105,7 @@ jobs:
           AUTOPILOT_REPO_PATH:  ${{ github.workspace }}/autopilot-repo
           AUTOPILOT_REPO_SLUG:  ${{ vars.AUTOPILOT_REPO_SLUG }}
         working-directory: autopilot-repo
-        run: node dist/session.js
+        run: node dist/main.js
 
       - name: Push session commits (target repo)
         working-directory: target-repo
