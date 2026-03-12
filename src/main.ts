@@ -41,7 +41,7 @@ import { AutopilotIssue, Learning } from "./types.js";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const MODEL = "claude-opus-4-6";
+const MODEL = "claude-sonnet-4-6";
 const MAX_TOKENS = 16384;
 const MAX_TURNS = 40;
 

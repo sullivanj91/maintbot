@@ -103,7 +103,7 @@ async function generateInterviewQuestions(snapshot: string): Promise<string[]> {
   const client = new Anthropic();
 
   const response = await client.messages.create({
-    model: "claude-opus-4-6",
+    model: "claude-sonnet-4-6",
     max_tokens: 1024,
     messages: [
       {
@@ -206,7 +206,7 @@ async function generateAgentMd(
     .join("\n\n");
 
   const response = await client.messages.create({
-    model: "claude-opus-4-6",
+    model: "claude-sonnet-4-6",
     max_tokens: 4096,
     messages: [
       {
