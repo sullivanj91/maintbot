@@ -1,0 +1,65 @@
+name: Autopilot Request
+description: Ask the Autopilot maintenance agent to do something in this repo.
+title: '[Autopilot] '
+labels:
+  - autopilot-input
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this template to request work from the Autopilot maintenance agent.
+
+        The agent reads all open `autopilot-input` issues at the start of every
+        scheduled session (every 8 hours by default). It prioritises issues
+        labelled `autopilot-urgent`, then by engagement (reactions + comments),
+        then by age (oldest first).
+
+        Add the `autopilot-urgent` label if this needs immediate attention —
+        that will trigger an out-of-schedule session.
+
+  - type: textarea
+    id: request
+    attributes:
+      label: What should Autopilot do?
+      description: |
+        Describe the task clearly. The more specific you are, the better.
+        Examples: "Upgrade numpy to 2.x", "Fix the flaky test in test_pipeline.py",
+        "Update AGENT.md to document the new S3 bucket naming convention".
+      placeholder: Please...
+    validations:
+      required: true
+
+  - type: dropdown
+    id: priority
+    attributes:
+      label: Priority
+      description: |
+        Select "Urgent" to trigger an immediate out-of-schedule session.
+        Use sparingly — urgent sessions consume extra compute.
+      options:
+        - Normal (handle in next scheduled session)
+        - Urgent (trigger immediate session)
+    validations:
+      required: true
+
+  - type: textarea
+    id: constraints
+    attributes:
+      label: Task-specific constraints (optional)
+      description: |
+        Any extra constraints for this specific task. These do NOT override the
+        constitutional constraints in AGENT.md — they are additional guidance.
+      placeholder: |
+        e.g. "Do not touch the legacy_auth module"
+             "Only upgrade patch versions, not minor or major"
+    validations:
+      required: false
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional context (optional)
+      description: |
+        Relevant background, related issues, documentation links, etc.
+    validations:
+      required: false
