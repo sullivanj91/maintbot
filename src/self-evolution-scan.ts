@@ -23,11 +23,11 @@ import { Learning } from "./types.js";
 // ─── Config ───────────────────────────────────────────────────────────────────
 
 interface SelfEvolutionConfig {
-  min_repos_for_candidate?: number;
+  minReposForCandidate?: number;
 }
 
 interface AutopilotConfigWithEvolution {
-  self_evolution?: SelfEvolutionConfig;
+  selfEvolution?: SelfEvolutionConfig;
 }
 
 function loadMinRepos(repoPath: string): number {
@@ -36,7 +36,7 @@ function loadMinRepos(repoPath: string): number {
   const cfg = yaml.load(
     fs.readFileSync(configPath, "utf8")
   ) as AutopilotConfigWithEvolution;
-  return cfg?.self_evolution?.min_repos_for_candidate ?? 3;
+  return cfg?.selfEvolution?.minReposForCandidate ?? 3;
 }
 
 // ─── Already-Proposed Filter ─────────────────────────────────────────────────

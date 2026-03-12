@@ -7,35 +7,35 @@
 
 schedule:
   frequency: "every-8-hours"
-  session_time_limit_minutes: 30
-  immediate_trigger_on:
+  sessionTimeLimitMinutes: 30
+  immediateTriggerOn:
     - label: "autopilot-urgent"
-    - incident_severity: "critical"
+    - incidentSeverity: "critical"
 
 issues:
-  input_label: "autopilot-input"
-  urgent_label: "autopilot-urgent"
-  filed_label: "autopilot-filed"
-  max_issues_filed_per_session: 3
-  max_issues_processed_per_session: 2
+  inputLabel: "autopilot-input"
+  urgentLabel: "autopilot-urgent"
+  filedLabel: "autopilot-filed"
+  maxIssuesFiledPerSession: 3
+  maxIssuesProcessedPerSession: 2
 
 transparency:
-  commit_prefix: "autopilot/session"
-  session_summary_in_commit: true
-  require_signed_commits: false
+  commitPrefix: "autopilot/session"
+  sessionSummaryInCommit: true
+  requireSignedCommits: false
 
 # Hash of the ## Autopilot Constraints section in this repo's AGENT.md.
 # Populated during initial setup. Update via human-approved PR when constraints change.
-constitutional_hash: ""
+constitutionalHash: ""
 
 # ─── Self-Evolution Configuration ─────────────────────────────────────────────
-self_evolution:
+selfEvolution:
   # Minimum number of distinct repos a pattern must appear in before qualifying
   # as a self-evolution candidate.
-  min_repos_for_candidate: 3
+  minReposForCandidate: 3
 
   # The self-evolution loop never self-merges. Always opens a PR.
-  require_human_merge: true
+  requireHumanMerge: true
 
   # Label added to self-evolution PRs so they are easy to find.
-  pr_label: "autopilot-self-evolution"
+  prLabel: "autopilot-self-evolution"

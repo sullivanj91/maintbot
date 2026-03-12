@@ -296,10 +296,10 @@ function generateConfig(
   const templatePath = path.join(autopilotRepoPath, "templates/autopilot.yml");
   let config = fs.readFileSync(templatePath, "utf8");
 
-  // Inject constitutional_hash
+  // Inject constitutionalHash
   config = config.replace(
-    /constitutional_hash:\s*""\s*#.*$/m,
-    `constitutional_hash: "${constitutionalHash}"`
+    /constitutionalHash:\s*""\s*#.*$/m,
+    `constitutionalHash: "${constitutionalHash}"`
   );
 
   // Inject Autopilot repo slug into comment
