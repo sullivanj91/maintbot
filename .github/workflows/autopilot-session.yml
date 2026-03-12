@@ -83,7 +83,7 @@ jobs:
           TARGET_REPO_SLUG:     ${{ github.repository }}
           AUTOPILOT_REPO_PATH:  ${{ github.workspace }}
           AUTOPILOT_REPO_SLUG:  ${{ github.repository }}
-        run: node dist/session.js
+        run: node dist/main.js
 
       - name: Push session commits
         run: |
